@@ -1,36 +1,28 @@
-import express from 'express';
-import customLint from './eslint'; // Your existing serverless function
+import express, { Request, Response } from 'express'; // Import types
+import customLint from './eslint'; // Your existing function logic
 
-// Create an Express application
 const app = express();
-
-// The customLint function expects the request body to be raw JSON.
-// We configure Express to parse the JSON body of incoming requests.
 app.use(express.json({ limit: '50mb' }));
-
-// Get the port from the environment variable for Cloud Run, or default to 8080.
 const port = process.env.PORT || 8080;
 
-// This is an adapter. It creates a route that listens for POST requests.
-// When a request comes in, it converts the Express request into a format
-// your serverless function understands, calls it, and sends back the response.
-app.post('/custom-check', async (req, res) => {
+// The route that wraps your Netlify function
+app.post('/custom-check', async (req: Request, res: Response) => { // Add types
   try {
-    // 1. Construct a Web Standard `Request` object that `customLint` expects.
+    // 1. Create a Request object that looks like what a Netlify Function receives.
     const webRequest = new Request(`http://${req.headers.host}${req.url}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Forward any other headers that might be important
         'x-apollo-signature': req.headers['x-apollo-signature'] as string,
       },
       body: JSON.stringify(req.body),
     });
 
-    // 2. Call your original handler with the converted request.
-    const webResponse = await customLint(webRequest);
+    // 2. Call your original handler. Netlify functions expect a second 'context'
+    //    argument, so we pass a dummy empty object.
+    const webResponse = await customLint(webRequest, {} as any);
 
-    // 3. Convert the Web Standard `Response` back into an Express response.
+    // 3. Send the response from your function back to the client.
     webResponse.headers.forEach((value, key) => {
       res.setHeader(key, value);
     });
@@ -42,7 +34,6 @@ app.post('/custom-check', async (req, res) => {
   }
 });
 
-// Start the Express server and listen on the configured port.
 app.listen(port, () => {
-  console.log(`🚀 Server listening at http://localhost:${port}`);
+  console.log(`🚀 Server listening at http://localhost:${port}/custom-check`);
 });
