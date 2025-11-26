@@ -1,4 +1,4 @@
-// --- START OF NEW DEBUGGING SERVER ---
+// --- START OF FINAL DEBUGGING SERVER ---
 
 console.log('[DEBUG] Server script started.');
 
@@ -6,6 +6,8 @@ try {
   // All imports are moved inside the try block to catch import-time errors.
   console.log('[DEBUG] Importing dependencies...');
   const express = require('express');
+  // Explicitly import the types for Express
+  const { Request, Response } = require('express'); 
   const { default: customLint } = require('./eslint');
   console.log('[DEBUG] Dependencies imported successfully.');
 
@@ -15,7 +17,8 @@ try {
   const port = process.env.PORT || 8080;
 
   console.log('[DEBUG] Setting up /custom-check route...');
-  app.post('/custom-check', async (req, res) => {
+  // Add the explicit types to the request and response objects
+  app.post('/custom-check', async (req: typeof Request, res: typeof Response) => {
     try {
       const webRequest = new Request(`http://${req.headers.host}${req.url}`, {
         method: 'POST',
@@ -28,7 +31,8 @@ try {
 
       const webResponse = await customLint(webRequest, {} as any);
 
-      webResponse.headers.forEach((value, key) => {
+      // Add the explicit types for the forEach loop
+      webResponse.headers.forEach((value: string, key: string) => {
         res.setHeader(key, value);
       });
       res.status(webResponse.status).send(await webResponse.text());
@@ -56,4 +60,4 @@ try {
   process.exit(1); 
 }
 
-// --- END OF NEW DEBUGGING SERVER ---
+// --- END OF FINAL DEBUGGING SERVER ---
