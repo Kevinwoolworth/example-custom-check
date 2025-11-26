@@ -1,37 +1,57 @@
+# .github/workflows/deploy.yml
+
 on:
   push:
     branches:
-      - test-custom-check
+      - test-custom-check # This workflow runs on pushes to this branch
 
+# Permissions required for the checkout and auth actions
 permissions:
   contents: read
+  id-token: write # Required for the google-github-actions/auth action
 
 jobs:
   build-and-deploy:
+    name: Build and Deploy to Cloud Run
     runs-on: ubuntu-latest
+    
+    # Define environment variables for the entire job
+    env:
+      # The image path in Artifact Registry
+      IMAGE: ${{ secrets.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/example-custom-check/example-custom-check:${{ github.sha }}
+      REGION: ${{ secrets.REGION }}
+      SERVICE: example-custom-check # The name of your Cloud Run service
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 1. Authenticate to Google Cloud for gcloud and Docker
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      # 2. Configure Docker to authenticate with Artifact Registry
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
-      - name: Configure gcloud project
-        run: gcloud config set project ${{ secrets.GCP_PROJECT }}
+      # 3. Set up Docker Buildx for advanced build capabilities
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      # 4. Build and push the Docker image to Artifact Registry
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .       # Use the current directory as the build context
+          push: true       # Push the image after building
+          tags: ${{ env.IMAGE }} # Tag the image with the path defined above
+          cache-from: type=gha # Enable GitHub Actions cache for faster builds
+          cache-to: type=gha,mode=max
 
-      - name: Build and push container with Cloud Build
-        env:
-          IMAGE: gcr.io/${{ secrets.GCP_PROJECT }}/example-custom-check:${{ github.sha }}
-        run: |
-          gcloud builds submit --tag "$IMAGE" .
-
+      # 5. Deploy the image from Artifact Registry to Cloud Run
       - name: Deploy to Cloud Run
-        env:
-          IMAGE: gcr.io/${{ secrets.GCP_PROJECT }}/example-custom-check:${{ github.sha }}
-          REGION: ${{ secrets.REGION }}
-          SERVICE: example-custom-check
         run: |
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE" \
