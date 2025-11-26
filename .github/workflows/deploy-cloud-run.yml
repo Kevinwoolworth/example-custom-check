@@ -50,6 +50,21 @@ jobs:
           cache-from: type=gha # Enable GitHub Actions cache for faster builds
           cache-to: type=gha,mode=max
 
+      - name: Run Container for Smoke Test
+        run: |
+          echo "------------------------------------------------"
+          echo "--- RUNNING SMOKE TEST ON THE BUILT CONTAINER ---"
+          echo "------------------------------------------------"
+          
+          # We run the container, but we expect it to fail. The '|| true'
+          # prevents the workflow from stopping here so we can see the logs.
+          docker run --rm -e PORT=8080 ${{ env.IMAGE }} || true
+          
+          echo "------------------------------------------------"
+          echo "---         END OF SMOKE TEST LOGS           ---"
+          echo "------------------------------------------------"
+          echo "If you see a crash error above, that is the root cause."
+
       # 5. Deploy the image from Artifact Registry to Cloud Run
       - name: Deploy to Cloud Run
         run: |
