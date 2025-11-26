@@ -1,17 +1,22 @@
-# Use Node LTS
+# Use Node.js 20 to match the preference from your dependencies
 FROM node:20-alpine
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-RUN npm install --only=production
 
-# Copy source
+# Install production dependencies
+RUN npm install --omit=dev
+
+# Copy the rest of the source code
 COPY . .
 
-# Build (if TypeScript)
+# Build the TypeScript code into JavaScript
 RUN npm run build
 
-# Use a simple command to run the built code
-CMD ["node", "dist/index.js"]
+# Expose the port Cloud Run will use
+EXPOSE 8080
+
+# Run the new "start" script from package.json
+CMD [ "npm", "start" ]
